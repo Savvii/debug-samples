@@ -1,0 +1,58 @@
+@startuml
+box "Java Heap" #LightYellow
+    participant "Eden\nSpace" as Eden
+    participant "Survivor\nSpace" as Survivor
+    participant "Old\nGeneration" as Old
+end box
+
+note over Eden: Objects are first created here
+
+== Initial Object Creation ==
+[o-> Eden: New query object
+[o-> Eden: New parse structure
+[o-> Eden: New result buffer
+
+== Minor GC Cycle 1 ==
+Eden -> Survivor: Objects survive first collection
+note right of Survivor
+  Objects survive because they are:
+  1. Referenced by active operations:
+     - Ongoing query parsing structures
+     - Search result buffers during merge
+     - Active shard request objects
+  2. Part of important state:
+     - Cached query results waiting to be stored
+     - Field data being loaded into cache
+     - Partial results in multi-shard searches
+  3. Referenced by root sources:
+     - Held by NR (NodeReceiver) during query
+     - In CircuitBreaker memory tracking
+     - In Cache entry preparation
+end note
+note right of Survivor: Age = 1
+destroy -> Eden: Temporary objects get collected
+
+== Minor GC Cycle N ==
+Survivor -> Survivor: Objects survive more collections
+note right of Survivor: Age increases with each survival
+
+== Tenuring Threshold Reached ==
+Survivor -> Old: Objects promoted after threshold
+note right of Old
+  Common promotion triggers:
+  - Large result sets
+  - High cache usage
+  - Expensive aggregations
+  - Many concurrent searches
+end note
+
+== Example Long-lived Objects ==
+note right of Old
+  - Node Query Cache entries
+  - Field Data Cache
+  - Index segments
+  - Frequently used filters
+  - Connection pools
+end note
+
+@enduml
